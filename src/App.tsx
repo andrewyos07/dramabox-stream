@@ -3,6 +3,7 @@ import Navbar from './components/Navbar';
 import MobileNavbar from './components/MobileNavbar';
 import Home from './pages/Home';
 import SeriesDetail from './pages/SeriesDetail';
+import CategoryListPage from './pages/CategoryListPage';
 import './App.css';
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/series/:id" element={<SeriesDetail />} />
+        <Route path="/category/:type" element={<CategoryListPage />} />
       </Routes>
     </Router>
   );

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Book } from '../services/dramaboxApi';
-import { dramaboxApi } from '../services/dramaboxApi';
+import { fetchDramasByKeywords } from '../utils/dramaData';
 import FeaturedDrama from './FeaturedDrama';
 
 export default function FeaturedSection() {
@@ -12,35 +12,8 @@ export default function FeaturedSection() {
       try {
         // Search for popular keywords to get featured dramas
         const keywords = ['drama', 'romance', 'love'];
-        const allResults: Book[] = [];
-        let successCount = 0;
-
-        for (const keyword of keywords) {
-          try {
-            const result = await dramaboxApi.searchBook(keyword);
-            const searchList = (result.searchList ?? []) as Book[];
-            const normalized = searchList
-              .slice(0, 5)
-              .map((item) => ({
-                ...item,
-                bookId: item.bookId || item.id || '',
-                bookName: item.bookName || item.title || 'Untitled',
-              }));
-            allResults.push(...normalized);
-            successCount++;
-            // If we got results, we can break early
-            if (allResults.length >= 3) break;
-          } catch {
-            // Silently fail and try next keyword
-          }
-        }
-
-        // Remove duplicates and take first 3
-        const unique = allResults.filter(
-          (item, index, self) =>
-            index === self.findIndex((t) => (t.bookId || t.id) === (item.bookId || item.id))
-        );
-        setFeaturedDramas(unique.slice(0, 3));
+        const results = await fetchDramasByKeywords(keywords, 3);
+        setFeaturedDramas(results.slice(0, 3));
       } catch {
         // Set empty array so component doesn't show loading forever
         setFeaturedDramas([]);
@@ -54,9 +27,9 @@ export default function FeaturedSection() {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+      <div className="grid grid-cols-1 gap-6 mb-12 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <div className="bg-gray-800 rounded-lg aspect-video animate-pulse" />
+          <div className="bg-gray-800 rounded-lg animate-pulse aspect-video" />
         </div>
         <div className="space-y-6">
           <div className="bg-gray-800 rounded-lg aspect-[3/4] animate-pulse" />
@@ -73,7 +46,7 @@ export default function FeaturedSection() {
   const [mainDrama, ...sideDramas] = featuredDramas;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+    <div className="grid grid-cols-1 gap-6 mb-12 lg:grid-cols-3">
       {/* Main Featured Drama */}
       {mainDrama && (
         <div className="lg:col-span-2">

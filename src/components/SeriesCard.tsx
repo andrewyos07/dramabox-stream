@@ -19,7 +19,7 @@ export default function SeriesCard({ series }: SeriesCardProps) {
   return (
     <div
       onClick={handleClick}
-      className="overflow-hidden bg-gray-800 rounded-lg shadow-lg transition-all duration-300 cursor-pointer group hover:shadow-xl hover:scale-105"
+      className="overflow-hidden h-full bg-gray-800 rounded-lg shadow-lg transition-all duration-300 cursor-pointer group hover:shadow-xl hover:scale-105"
     >
       <div className="relative aspect-[3/4] overflow-hidden">
         <img
@@ -33,14 +33,14 @@ export default function SeriesCard({ series }: SeriesCardProps) {
         />
         <div className="flex absolute inset-0 justify-center items-center bg-black bg-opacity-0 transition-all duration-300 group-hover:bg-opacity-40">
           <div className="opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-            <div className="p-2 md:p-3 bg-blue-500 rounded-full">
-              <Play className="w-4 h-4 md:w-6 md:h-6 text-white" fill="white" />
+            <div className="p-2 bg-blue-500 rounded-full md:p-3">
+              <Play className="w-4 h-4 text-white md:w-6 md:h-6" fill="white" />
             </div>
           </div>
         </div>
       </div>
       <div className="p-2 md:p-3">
-        <h3 className="mb-1 text-xs md:text-sm font-semibold text-white line-clamp-2">
+        <h3 className="mb-1 text-xs font-semibold text-white md:text-sm line-clamp-2">
           {series.bookName || series.title || 'Untitled'}
         </h3>
         <div className="flex flex-col gap-1">

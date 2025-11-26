@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { Book } from '../services/dramaboxApi';
 import { useNavigate } from 'react-router-dom';
-import { Play, Clock } from 'lucide-react';
 
 interface DramaCarouselProps {
   dramas: Book[];

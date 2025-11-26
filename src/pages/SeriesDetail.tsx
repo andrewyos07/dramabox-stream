@@ -18,6 +18,18 @@ export default function SeriesDetail() {
   const [isLoadingVideo, setIsLoadingVideo] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
 
+  const deduplicateChapters = (chapters: UnlockChapterItem[]) => {
+    const seen = new Set<number>();
+    return chapters.filter((chapter) => {
+      const index = chapter.chapterIndex ?? 0;
+      if (seen.has(index)) {
+        return false;
+      }
+      seen.add(index);
+      return true;
+    });
+  };
+
   useEffect(() => {
     if (!id) return;
 
@@ -31,10 +43,13 @@ export default function SeriesDetail() {
         try {
           const chapterIds = detail.chapterList.map((ch) => ch.id);
           const unlocked = await dramaboxApi.batchUnlockEpisode(id, chapterIds);
-          const sorted = unlocked.chapterVoList.sort(
-            (a, b) => a.chapterIndex - b.chapterIndex
-          );
-          setUnlockedChapters(sorted);
+          const sorted = unlocked.chapterVoList
+            .map((chapter) => ({
+              ...chapter,
+              chapterIndex: chapter.chapterIndex || Number(chapter.chapterId?.match(/\d+/)?.[0]) || 0,
+            }))
+            .sort((a, b) => a.chapterIndex - b.chapterIndex);
+          setUnlockedChapters(deduplicateChapters(sorted));
         } catch {
           // Silently fallback to chapter list from detail
           // This is expected when API authentication fails
@@ -50,7 +65,7 @@ export default function SeriesDetail() {
             viewingDuration: ch.duration || 0,
             chargeChapter: false,
           }));
-          setUnlockedChapters(fallbackChapters);
+          setUnlockedChapters(deduplicateChapters(fallbackChapters));
         }
       } catch {
         // Silently handle error

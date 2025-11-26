@@ -5,6 +5,7 @@ import DramaCarousel from '../components/DramaCarousel';
 import CategorySection from '../components/CategorySection';
 import { dramaboxApi } from '../services/dramaboxApi';
 import type { Book } from '../services/dramaboxApi';
+import { fetchDramasByKeywords } from '../utils/dramaData';
 
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -68,51 +69,22 @@ export default function Home() {
     const loadCategoryDramas = async () => {
       setIsLoadingCategories(true);
       try {
-        // Load featured dramas for carousel
-        const featuredKeywords = ['drama', 'romance', 'love'];
-        const featuredResults: Book[] = [];
-        for (const keyword of featuredKeywords) {
-          try {
-            const result = await dramaboxApi.searchBook(keyword);
-            const searchList = (result.searchList ?? []) as Book[];
-            const normalized = searchList
-              .slice(0, 5)
-              .map((item) => ({
-                ...item,
-                bookId: item.bookId || item.id || '',
-                bookName: item.bookName || item.title || 'Untitled',
-              }));
-            featuredResults.push(...normalized);
-            if (featuredResults.length >= 5) break;
-          } catch {
-            // Continue
-          }
-        }
-        const uniqueFeatured = featuredResults.filter(
-          (item, index, self) =>
-            index === self.findIndex((t) => (t.bookId || t.id) === (item.bookId || item.id))
-        );
-        setFeaturedDramas(uniqueFeatured.slice(0, 5));
+        const [featuredResults, latestResults, popularResults, exclusiveResults] = await Promise.all([
+          fetchDramasByKeywords(['drama korea', 'romance', 'action', 'thriller', 'fantasy'], 10),
+          fetchDramasByKeywords(['terbaru', 'new release', 'fresh', '2024', 'drama terbaru'], 15),
+          fetchDramasByKeywords(['popular', 'trending', 'favorite', 'hits', 'top rated'], 15),
+          fetchDramasByKeywords(['exclusive', 'premium', 'original', 'vip', 'must watch'], 15),
+        ]);
 
-        // Load latest dramas
-        try {
-          const latestResult = await dramaboxApi.searchBook('drama');
-          const latestList = (latestResult.searchList ?? []) as Book[];
-          const normalized = latestList
-            .slice(0, 10)
-            .map((item) => ({
-              ...item,
-              bookId: item.bookId || item.id || '',
-              bookName: item.bookName || item.title || 'Untitled',
-            }));
-          setLatestDramas(normalized);
-          setPopularDramas(normalized.slice(0, 10));
-          setExclusiveDramas(normalized.slice(0, 10));
-        } catch {
-          // Silently fail
-        }
+        setFeaturedDramas(featuredResults);
+        setLatestDramas(latestResults);
+        setPopularDramas([...popularResults].sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0)));
+        setExclusiveDramas(exclusiveResults);
       } catch {
-        // Silently fail
+        setFeaturedDramas([]);
+        setLatestDramas([]);
+        setPopularDramas([]);
+        setExclusiveDramas([]);
       } finally {
         setIsLoadingCategories(false);
       }
@@ -179,6 +151,7 @@ export default function Home() {
                   icon="flame"
                   dramas={popularDramas}
                   isLoading={isLoadingCategories}
+          seeAllPath="/category/terpopular"
                 />
 
                 <CategorySection
@@ -186,6 +159,7 @@ export default function Home() {
                   icon="gem"
                   dramas={exclusiveDramas}
                   isLoading={isLoadingCategories}
+          seeAllPath="/category/terbatas"
                 />
               </>
             ) : (

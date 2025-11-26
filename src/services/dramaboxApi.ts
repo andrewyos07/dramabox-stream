@@ -142,14 +142,15 @@ const headers = {
 
 export class DramaboxAPI {
   private headers: Record<string, string> = headers;
-  private timestamp: number = Date.now();
 
-  async getSignature(payload: Record<string, unknown>): Promise<string> {
-    this.timestamp = Date.now();
+  async getSignature(
+    payload: Record<string, unknown>
+  ): Promise<{ signature: string; timestamp: number }> {
+    const timestamp = Date.now();
     const deviceId = this.headers["device-id"];
     const androidId = this.headers["android-id"];
     const tn = this.headers["tn"];
-    const strPayload = `timestamp=${this.timestamp}${JSON.stringify(
+    const strPayload = `timestamp=${timestamp}${JSON.stringify(
       payload
     )}${deviceId}${androidId}${tn}`;
     const signReqBody = { str: strPayload };
@@ -170,9 +171,8 @@ export class DramaboxAPI {
       signature: string;
     };
     
-    if (!response.success)
-      throw new Error("sign endpoint returned success=false");
-    return response.signature as string;
+    if (!response.success) throw new Error("sign endpoint returned success=false");
+    return { signature: response.signature as string, timestamp };
   }
 
   async searchBook(keyword: string): Promise<SearchResult> {
@@ -183,9 +183,9 @@ export class DramaboxAPI {
       from: "search_sug",
       keyword,
     };
-    const signature = await this.getSignature(payload);
+    const { signature, timestamp } = await this.getSignature(payload);
     const res = await fetch(
-      `https://dramabox-api.d5studio.site/proxy.php/drama-box/search/search?timestamp=${this.timestamp}`,
+      `https://dramabox-api.d5studio.site/proxy.php/drama-box/search/search?timestamp=${timestamp}`,
       {
         method: "POST",
         headers: { ...this.headers, sn: signature },
@@ -220,10 +220,9 @@ export class DramaboxAPI {
       chapterIdList: chapterIdList,
     };
 
-    this.timestamp = Date.now();
-    const signature = await this.getSignature(payload);
+    const { signature, timestamp } = await this.getSignature(payload);
     const res = await fetch(
-      `https://dramabox-api.d5studio.site/proxy.php/drama-box/chapterv2/batchDownload?timestamp=${this.timestamp}`,
+      `https://dramabox-api.d5studio.site/proxy.php/drama-box/chapterv2/batchDownload?timestamp=${timestamp}`,
       {
         method: "POST",
         headers: { ...this.headers, sn: signature },
