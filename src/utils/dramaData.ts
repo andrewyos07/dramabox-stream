@@ -83,6 +83,8 @@ const fetchKeywordResults = async (keyword: string, maxRetries = 2) => {
       await delay(backoff);
     }
   }
+
+  return [];
 };
 
 export const fetchDramasByKeywords = async (keywords: string[], limit: number) => {
