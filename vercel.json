@@ -4,7 +4,16 @@
   "installCommand": "npm install",
   "framework": null,
   "rewrites": [
-    { "source": "/api/dramabox/(.*)", "destination": "/api/dramabox/$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { 
+      "source": "/(.*)", 
+      "destination": "/index.html",
+      "has": [
+        {
+          "type": "header",
+          "key": "accept",
+          "value": "text/html"
+        }
+      ]
+    }
   ]
 }

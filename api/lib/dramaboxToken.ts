@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
-import { DramaboxApp, baseHeaders, randomAndroidId } from './dramaboxAuth';
+import { DramaboxApp, baseHeaders, randomAndroidId } from './dramaboxAuth.js';
 
 function getSignatureHeaders(payload: Record<string, unknown>) {
   const timestamp = Date.now();
