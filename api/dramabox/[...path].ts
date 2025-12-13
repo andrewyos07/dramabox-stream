@@ -21,21 +21,41 @@ export default async function handler(
   }
 
   try {
-    const path = req.query.path as string[] | string;
     let endpoint = '';
     
-    if (Array.isArray(path)) {
-      endpoint = path.join('/');
-    } else if (path) {
-      endpoint = path;
+    // Method 1: Try to get from query.path (Vercel catch-all route format)
+    const path = req.query.path;
+    if (path) {
+      if (Array.isArray(path)) {
+        endpoint = path.join('/');
+      } else if (typeof path === 'string') {
+        endpoint = path;
+      }
+    }
+    
+    // Method 2: Extract from URL pathname if query.path is not available
+    if (!endpoint && req.url) {
+      const urlPath = req.url.split('?')[0]; // Remove query string
+      // Remove /api/dramabox prefix
+      const match = urlPath.match(/^\/api\/dramabox\/(.+)$/);
+      if (match && match[1]) {
+        endpoint = match[1];
+      }
     }
     
     if (!endpoint) {
-      console.error('[dramabox-proxy] No endpoint provided');
+      console.error('[dramabox-proxy] No endpoint provided', {
+        query: req.query,
+        url: req.url,
+        method: req.method
+      });
       res.status(400).json({ 
         success: false, 
         message: 'No endpoint provided',
-        query: req.query 
+        debug: {
+          query: req.query,
+          url: req.url
+        }
       });
       return;
     }
@@ -54,7 +74,13 @@ export default async function handler(
     const queryString = queryParams.toString();
     const url = `${API_BASE}/${endpoint}${queryString ? `?${queryString}` : ''}`;
 
-    console.log(`[dramabox-proxy] Fetching: ${req.method} ${url}`);
+    console.log(`[dramabox-proxy] Request details:`, {
+      method: req.method,
+      endpoint,
+      url,
+      query: req.query,
+      originalUrl: req.url
+    });
 
     const fetchOptions: RequestInit = {
       method: req.method || 'GET',
