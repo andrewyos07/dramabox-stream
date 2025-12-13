@@ -1,5 +1,4 @@
 import crypto from 'crypto';
-import { v4 as uuidv4 } from 'uuid';
 
 export function decodeString(str = '') {
   let result = '';
@@ -43,6 +42,10 @@ export class DramaboxApp {
 
   static sign(str: string): string | null {
     if (!DramaboxApp.privateKey) DramaboxApp.initPrivateKey();
+    if (!DramaboxApp.privateKey) {
+      console.error('[dramaboxapp] Private key not initialized');
+      return null;
+    }
     try {
       const sign = crypto.createSign('RSA-SHA256');
       sign.update(Buffer.from(str, 'utf-8'));
