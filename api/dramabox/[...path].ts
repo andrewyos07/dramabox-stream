@@ -30,6 +30,16 @@ export default async function handler(
       endpoint = path;
     }
     
+    if (!endpoint) {
+      console.error('[dramabox-proxy] No endpoint provided');
+      res.status(400).json({ 
+        success: false, 
+        message: 'No endpoint provided',
+        query: req.query 
+      });
+      return;
+    }
+    
     // Build query string from query params (excluding 'path')
     const queryParams = new URLSearchParams();
     Object.entries(req.query).forEach(([key, value]) => {
@@ -44,11 +54,14 @@ export default async function handler(
     const queryString = queryParams.toString();
     const url = `${API_BASE}/${endpoint}${queryString ? `?${queryString}` : ''}`;
 
+    console.log(`[dramabox-proxy] Fetching: ${req.method} ${url}`);
+
     const fetchOptions: RequestInit = {
       method: req.method || 'GET',
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json',
       },
     };
 
@@ -58,29 +71,72 @@ export default async function handler(
 
     const response = await fetch(url, fetchOptions);
     
+    console.log(`[dramabox-proxy] Response status: ${response.status} for ${url}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[dramabox-proxy] API error (${response.status}):`, errorText);
+      res.status(response.status).json({ 
+        success: false, 
+        message: `API returned ${response.status}`,
+        error: errorText.substring(0, 500) // Limit error text length
+      });
+      return;
+    }
+    
     // Handle different content types
     const contentType = response.headers.get('content-type');
     let data;
     
-    if (contentType?.includes('application/json')) {
-      data = await response.json();
-    } else {
-      data = await response.text();
+    try {
+      if (contentType?.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        // Try to parse as JSON even if content-type doesn't say so
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = text;
+        }
+      }
+    } catch (parseError) {
+      console.error('[dramabox-proxy] Failed to parse response:', parseError);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to parse API response',
+        error: parseError instanceof Error ? parseError.message : String(parseError)
+      });
+      return;
     }
 
-    // Forward status and headers
+    // Forward status and headers (but be careful with CORS headers)
     res.status(response.status);
     response.headers.forEach((value, key) => {
-      if (key.toLowerCase() !== 'content-encoding') {
+      const lowerKey = key.toLowerCase();
+      // Don't forward certain headers that might conflict
+      if (
+        lowerKey !== 'content-encoding' &&
+        lowerKey !== 'content-length' &&
+        !lowerKey.startsWith('access-control-')
+      ) {
         res.setHeader(key, value);
       }
     });
     
     res.json(data);
   } catch (error) {
+    console.error('[dramabox-proxy] Unexpected error:', error);
     const message =
       error instanceof Error ? error.message : 'Unexpected server error';
-    res.status(500).json({ success: false, message, error: String(error) });
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    res.status(500).json({ 
+      success: false, 
+      message,
+      error: String(error),
+      ...(errorStack && { stack: errorStack })
+    });
   }
 }
 
