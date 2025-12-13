@@ -20,13 +20,13 @@ export default function SeriesDetail() {
   const [videoError, setVideoError] = useState<string | null>(null);
 
   const deduplicateChapters = (chapters: UnlockChapterItem[]) => {
-    const seen = new Set<number>();
+    const seen = new Set<string>();
     return chapters.filter((chapter) => {
-      const index = chapter.chapterIndex ?? 0;
-      if (seen.has(index)) {
+      const id = chapter.chapterId;
+      if (!id || seen.has(id)) {
         return false;
       }
-      seen.add(index);
+      seen.add(id);
       return true;
     });
   };
@@ -64,11 +64,11 @@ export default function SeriesDetail() {
           const chapters = streamData.chapters || [];
           
           if (chapters.length > 0) {
-            const unlockedChaptersList: UnlockChapterItem[] = chapters.map((ch) => ({
+            const unlockedChaptersList: UnlockChapterItem[] = chapters.map((ch, index) => ({
               chapterId: ch.chapterId,
-              chapterIndex: ch.chapterIndex || 0,
+              chapterIndex: ch.chapterIndex && ch.chapterIndex > 0 ? ch.chapterIndex : index + 1,
               isCharge: 0,
-              chapterName: ch.chapterName,
+              chapterName: ch.chapterName || `Episode ${ch.chapterIndex && ch.chapterIndex > 0 ? ch.chapterIndex : index + 1}`,
               cdnList: ch.videoUrls ? [{
                 cdnDomain: '',
                 isDefault: 1,
@@ -97,13 +97,20 @@ export default function SeriesDetail() {
               chargeChapter: false,
             }));
 
-            const sorted = unlockedChaptersList
-              .map((chapter) => ({
-                ...chapter,
-                chapterIndex: chapter.chapterIndex || Number(chapter.chapterId?.match(/\d+/)?.[0]) || 0,
-              }))
-              .sort((a, b) => a.chapterIndex - b.chapterIndex);
-            setUnlockedChapters(deduplicateChapters(sorted));
+            // Sort by chapterIndex first
+            const sorted = unlockedChaptersList.sort((a, b) => {
+              const aIndex = a.chapterIndex && a.chapterIndex > 0 ? a.chapterIndex : 0;
+              const bIndex = b.chapterIndex && b.chapterIndex > 0 ? b.chapterIndex : 0;
+              return aIndex - bIndex;
+            });
+            
+            // Reassign chapterIndex based on array position to ensure sequential numbering (1, 2, 3, ...)
+            const normalized = sorted.map((chapter, index) => ({
+              ...chapter,
+              chapterIndex: index + 1,
+            }));
+            
+            setUnlockedChapters(deduplicateChapters(normalized));
           } else {
             // Fallback: Use chapterList from detail if getAllEpisodes returns empty
             if (detail.chapterList.length > 0) {
@@ -256,6 +263,21 @@ export default function SeriesDetail() {
     }
   };
 
+  const handleVideoEnded = () => {
+    if (!selectedChapter || unlockedChapters.length === 0) return;
+
+    // Find current chapter index
+    const currentIndex = unlockedChapters.findIndex(
+      (ch) => ch.chapterId === selectedChapter.chapterId
+    );
+
+    // If there's a next chapter, play it
+    if (currentIndex >= 0 && currentIndex < unlockedChapters.length - 1) {
+      const nextChapter = unlockedChapters[currentIndex + 1];
+      handleChapterSelect(nextChapter);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen text-white bg-gray-900">
@@ -375,6 +397,7 @@ export default function SeriesDetail() {
                 availableQualities={availableQualities}
                 selectedQuality={selectedQuality}
                 onQualityChange={handleQualityChange}
+                onVideoEnded={handleVideoEnded}
               />
             ) : null}
           </div>
