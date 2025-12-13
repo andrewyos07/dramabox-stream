@@ -23,7 +23,7 @@ export function useSearchSuggestions(keyword: string, limit = 6) {
         setIsLoading(true);
         const result = await dramaboxApi.searchBook(trimmed);
         const searchList = (result.searchList ?? []) as Book[];
-        const normalized = searchList.map(normalizeBookData).slice(0, limit);
+        const normalized = searchList.map(normalizeBookData).filter(b => b.bookId).slice(0, limit);
         if (active) {
           setSuggestions(normalized);
         }

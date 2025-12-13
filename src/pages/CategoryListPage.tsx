@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import SeriesCard from '../components/SeriesCard';
 import type { Book } from '../services/dramaboxApi';
-import { enrichBooksWithViewCounts, fetchDramasByKeywords } from '../utils/dramaData';
+import { dramaboxApi } from '../services/dramaboxApi';
 
 const ITEMS_PER_PAGE = 50;
 const MAX_PAGES = 3;
@@ -11,14 +11,34 @@ const categoryConfigs = {
   terpopular: {
     title: 'Drama Terpopular',
     description: 'Daftar drama dengan jumlah views terbanyak di DramaBox.',
-    keywords: ['popular', 'trending', 'favorite', 'hits', 'top rated', 'most viewed'],
-    sort: (a: Book, b: Book) => (b.viewCount ?? 0) - (a.viewCount ?? 0),
+    apiMethod: () => dramaboxApi.getPopular(),
+    sort: (a: Book, b: Book) => {
+      const parsePlayCount = (count?: string) => {
+        if (!count) return 0;
+        const replaced = count.replace(/K/g, '000').replace(/M/g, '000000');
+        const num = parseFloat(replaced);
+        return isNaN(num) ? 0 : num;
+      };
+      const aCount = parsePlayCount((a as any).playCount);
+      const bCount = parsePlayCount((b as any).playCount);
+      return bCount - aCount;
+    },
   },
   terbatas: {
     title: 'Drama Terbatas',
     description: 'Pilihan eksklusif yang hanya tersedia untuk waktu terbatas.',
-    keywords: ['exclusive', 'premium', 'original', 'vip', 'must watch', 'special'],
-    sort: (a: Book, b: Book) => (b.followCount ?? 0) - (a.followCount ?? 0),
+    apiMethod: () => dramaboxApi.getTrending(),
+    sort: (a: Book, b: Book) => {
+      const parsePlayCount = (count?: string) => {
+        if (!count) return 0;
+        const replaced = count.replace(/K/g, '000').replace(/M/g, '000000');
+        const num = parseFloat(replaced);
+        return isNaN(num) ? 0 : num;
+      };
+      const aCount = parsePlayCount((a as any).playCount);
+      const bCount = parsePlayCount((b as any).playCount);
+      return bCount - aCount;
+    },
   },
 };
 
@@ -57,11 +77,17 @@ export default function CategoryListPage() {
 
       try {
         const desiredCount = ITEMS_PER_PAGE * MAX_PAGES;
-        let results = await fetchDramasByKeywords(category.keywords, desiredCount * 2);
-
-        if (category.key === 'terpopular') {
-          results = await enrichBooksWithViewCounts(results, 8);
-        }
+        let results = await category.apiMethod();
+        
+        // Normalize data
+        const normalize = (item: Book) => ({
+          ...item,
+          bookId: item.bookId || item.id || '',
+          bookName: item.bookName || item.title || 'Untitled',
+          cover: item.cover || item.coverWap || '',
+        });
+        
+        results = results.map(normalize);
 
         const sorted = category.sort ? [...results].sort(category.sort) : results;
         setItems(sorted.slice(0, desiredCount));
@@ -143,7 +169,7 @@ export default function CategoryListPage() {
                   {category.key === 'terpopular' && (
                     <p className="text-xs text-gray-400">
                       Views:{' '}
-                      {drama.viewCount != null ? formatNumber(drama.viewCount) : 'Memuat...'}
+                      {(drama as any).playCount || (drama.viewCount != null ? formatNumber(drama.viewCount) : 'N/A')}
                     </p>
                   )}
                 </div>

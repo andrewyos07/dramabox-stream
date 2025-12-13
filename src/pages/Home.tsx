@@ -5,7 +5,6 @@ import DramaCarousel from '../components/DramaCarousel';
 import CategorySection from '../components/CategorySection';
 import { dramaboxApi } from '../services/dramaboxApi';
 import type { Book } from '../services/dramaboxApi';
-import { fetchDramasByKeywords } from '../utils/dramaData';
 
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -21,6 +20,7 @@ export default function Home() {
   const [latestDramas, setLatestDramas] = useState<Book[]>([]);
   const [popularDramas, setPopularDramas] = useState<Book[]>([]);
   const [exclusiveDramas, setExclusiveDramas] = useState<Book[]>([]);
+  const [popularSectionDramas, setPopularSectionDramas] = useState<Book[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
 
   const handleSearch = useCallback(async (keyword: string) => {
@@ -69,22 +69,49 @@ export default function Home() {
     const loadCategoryDramas = async () => {
       setIsLoadingCategories(true);
       try {
-        const [featuredResults, latestResults, popularResults, exclusiveResults] = await Promise.all([
-          fetchDramasByKeywords(['drama korea', 'romance', 'action', 'thriller', 'fantasy'], 10),
-          fetchDramasByKeywords(['terbaru', 'new release', 'fresh', '2024', 'drama terbaru'], 15),
-          fetchDramasByKeywords(['popular', 'trending', 'favorite', 'hits', 'top rated'], 15),
-          fetchDramasByKeywords(['exclusive', 'premium', 'original', 'vip', 'must watch'], 15),
+        const [foryouResults, latestResults, trendingResults, popularResults, popularSectionResults] = await Promise.all([
+          dramaboxApi.getForYou().catch(() => []),
+          dramaboxApi.getLatest().catch(() => []),
+          dramaboxApi.getTrending().catch(() => []),
+          dramaboxApi.getPopular().catch(() => []),
+          dramaboxApi.getPopular().catch(() => []), // Popular section
         ]);
 
-        setFeaturedDramas(featuredResults);
-        setLatestDramas(latestResults);
-        setPopularDramas([...popularResults].sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0)));
-        setExclusiveDramas(exclusiveResults);
+        // Normalize data
+        const normalize = (item: Book) => ({
+          ...item,
+          bookId: item.bookId || item.id || '',
+          bookName: item.bookName || item.title || 'Untitled',
+          cover: item.cover || item.coverWap || '',
+        });
+
+        // Extract books from foryou - API returns recommendList.records
+        const featuredBooks: Book[] = Array.isArray(foryouResults) ? foryouResults : [];
+
+        setFeaturedDramas(featuredBooks.map(normalize).slice(0, 10));
+        setLatestDramas(latestResults.map(normalize).slice(0, 15));
+        
+        // Sort popular by playCount (convert "11.7M" to number for sorting)
+        const parsePlayCount = (count?: string) => {
+          if (!count) return 0;
+          const replaced = count.replace(/K/g, '000').replace(/M/g, '000000');
+          const num = parseFloat(replaced);
+          return isNaN(num) ? 0 : num;
+        };
+        setPopularDramas([...trendingResults.map(normalize)].sort((a, b) => {
+          const aCount = parsePlayCount(a.playCount);
+          const bCount = parsePlayCount(b.playCount);
+          return bCount - aCount;
+        }).slice(0, 15));
+        
+        setExclusiveDramas(popularResults.map(normalize).slice(0, 15));
+        setPopularSectionDramas(popularSectionResults.map(normalize).slice(0, 15));
       } catch {
         setFeaturedDramas([]);
         setLatestDramas([]);
         setPopularDramas([]);
         setExclusiveDramas([]);
+        setPopularSectionDramas([]);
       } finally {
         setIsLoadingCategories(false);
       }
@@ -140,26 +167,34 @@ export default function Home() {
 
                 {/* Category Sections */}
                 <CategorySection
-                  title="TERBARU"
+                  title="For You"
                   icon="star"
                   dramas={latestDramas}
                   isLoading={isLoadingCategories}
                 />
 
                 <CategorySection
-                  title="TERPOPULAR"
+                  title="Latest"
                   icon="flame"
                   dramas={popularDramas}
                   isLoading={isLoadingCategories}
-          seeAllPath="/category/terpopular"
+                  seeAllPath="/category/terpopular"
                 />
 
                 <CategorySection
-                  title="TERBATAS"
+                  title="Trending"
                   icon="gem"
                   dramas={exclusiveDramas}
                   isLoading={isLoadingCategories}
-          seeAllPath="/category/terbatas"
+                  seeAllPath="/category/terbatas"
+                />
+
+                <CategorySection
+                  title="Popular"
+                  icon="flame"
+                  dramas={popularSectionDramas}
+                  isLoading={isLoadingCategories}
+                  seeAllPath="/category/popular"
                 />
               </>
             ) : (

@@ -1,31 +1,15 @@
-interface BaseResponseSuccess<T> {
-  status: 0;
-  message: string;
-  timestamp: number;
-  success: true;
-  data: T;
-}
-
-interface BaseResponseError {
-  status: number;
-  message: string;
-  timestamp: number;
-  success: false;
-  data: null;
-}
-
-type BaseResponse<T> = BaseResponseSuccess<T> | BaseResponseError;
-
 export interface Book {
   bookId: string;
   bookName?: string;
   cover?: string;
+  coverWap?: string;
   viewCount?: number;
   followCount?: number;
   introduction?: string;
   chapterCount?: number;
   labels?: string[];
   tags?: string[];
+  playCount?: string;
   typeTwoIds?: number[];
   typeTwoNames?: string[];
   typeTwoList?: {
@@ -110,133 +94,323 @@ export interface SearchResult {
   searchList?: Book[];
 }
 
-const headers = {
-  accept: "application/json, text/plain, */*",
-  "accept-encoding": "gzip, deflate, br, zstd",
-  "accept-language": "en-GB,en-US;q=0.9,en;q=0.8,id;q=0.7",
-  "android-id": "ffffffff9b5bfe16000000000",
-  apn: "1",
-  brand: "Xiaomi",
-  cid: "DAUAF1064291",
-  "content-type": "application/json; charset=UTF-8",
-  "current-language": "in",
-  "device-id": "ee9d23ac-0596-4f3e-8279-b652c9c2b7f0",
-  language: "in",
-  md: "Redmi Note 8",
-  mf: "XIAOMI",
-  origin: "https://dramabox.drama.web.id",
-  ov: "9",
-  "over-flow": "new-fly",
-  p: "48",
-  "package-name": "com.storymatrix.drama",
-  priority: "u=1, i",
-  referer: "https://dramabox.drama.web.id/",
-  "time-zone": "+0700",
-  tn: "Bearer ZXlKMGVYQWlPaUpLVjFRaUxDSmhiR2NpT2lKSVV6STFOaUo5LmV5SnlaV2RwYzNSbGNsUjVjR1VpT2lKVVJVMVFJaXdpZFhObGNrbGtJam96TXpZd09EUXdOVFo5LkFLMWw0d01Ud00xVndOTHBOeUlOcmtHN3dmb0czaGROMEgxNWVPZV9KaHc=",
-  "user-agent":
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-  "user-id": "336084056",
-  version: "470",
-  vn: "4.7.0",
-};
+export interface StreamChapter {
+  chapterId: string;
+  chapterIndex: number;
+  chapterName: string;
+  videoUrl?: string;
+  videoUrls?: Array<{
+    quality: number;
+    url: string;
+  }>;
+  cover?: string;
+  duration?: number;
+}
+
+export interface StreamResponse {
+  success?: boolean;
+  data?: {
+    chapters?: StreamChapter[];
+  };
+  chapters?: StreamChapter[];
+}
+
+const API_BASE = '/api/dramabox';
 
 export class DramaboxAPI {
-  private headers: Record<string, string> = headers;
+  async getForYou(): Promise<Book[]> {
+    const res = await fetch(`${API_BASE}/foryou`);
+    if (!res.ok) throw new Error('Failed to fetch For You');
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  }
 
-  async getSignature(
-    payload: Record<string, unknown>
-  ): Promise<{ signature: string; timestamp: number }> {
-    const timestamp = Date.now();
-    const deviceId = this.headers["device-id"];
-    const androidId = this.headers["android-id"];
-    const tn = this.headers["tn"];
-    const strPayload = `timestamp=${timestamp}${JSON.stringify(
-      payload
-    )}${deviceId}${androidId}${tn}`;
-    const signReqBody = { str: strPayload };
+  async getLatest(): Promise<Book[]> {
+    const res = await fetch(`${API_BASE}/latest`);
+    if (!res.ok) throw new Error('Failed to fetch Latest');
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  }
 
-    const res = await fetch(`https://dramabox-api.d5studio.site/sign`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "*/*",
-        Origin: "https://dramabox.drama.web.id",
-      },
-      body: JSON.stringify(signReqBody),
-    });
+  async getTrending(): Promise<Book[]> {
+    const res = await fetch(`${API_BASE}/trending`);
+    if (!res.ok) throw new Error('Failed to fetch Trending');
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  }
 
-    if (!res.ok) throw new Error(`sign request failed: ${res.status}`);
-    const response = (await res.json()) as {
-      success: number;
-      signature: string;
-    };
-    
-    if (!response.success) throw new Error("sign endpoint returned success=false");
-    return { signature: response.signature as string, timestamp };
+  async getPopular(): Promise<Book[]> {
+    const res = await fetch(`${API_BASE}/populersearch`);
+    if (!res.ok) throw new Error('Failed to fetch Popular');
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
   }
 
   async searchBook(keyword: string): Promise<SearchResult> {
-    const payload = {
-      searchSource: "搜索按钮",
-      pageNo: 1,
-      pageSize: 100,
-      from: "search_sug",
-      keyword,
-    };
-    const { signature, timestamp } = await this.getSignature(payload);
-    const res = await fetch(
-      `https://dramabox-api.d5studio.site/proxy.php/drama-box/search/search?timestamp=${timestamp}`,
-      {
-        method: "POST",
-        headers: { ...this.headers, sn: signature },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    const response = (await res.json()) as BaseResponse<SearchResult>;
-    if (!response.success) throw new Error(response.message);
-    return response.data;
+    const res = await fetch(`${API_BASE}/search?query=${encodeURIComponent(keyword)}`);
+    if (!res.ok) throw new Error('Failed to search');
+    const data = await res.json();
+    return { searchList: Array.isArray(data) ? data : [] };
   }
 
-  async getBookDetail(id: string): Promise<BookDetail> {
-    const res = await fetch(
-      `https://www.webfic.com/webfic/book/detail/v2?id=${id}&tlanguage=in`,
-      {
-        method: "GET",
+  async getAllEpisodes(bookId: string, useCache = true): Promise<StreamResponse> {
+    // Check cache first
+    if (useCache && typeof window !== 'undefined') {
+      const cacheKey = `episodes_${bookId}`;
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          const cacheTime = parsed.timestamp || 0;
+          const CACHE_TTL = 1000 * 60 * 10; // 10 minutes
+          if (Date.now() - cacheTime < CACHE_TTL) {
+            console.log(`Using cached episodes for bookId: ${bookId}`);
+            return parsed.data;
+          }
+        } catch {
+          // Invalid cache, continue to fetch
+        }
       }
-    );
+    }
 
-    const response = (await res.json()) as BaseResponse<BookDetail>;
-    if (!response.success) throw new Error(response.message);
-    return response.data;
+    const url = `${API_BASE}/allepisode?bookId=${bookId}`;
+    const res = await fetch(url);
+    
+    if (!res.ok) {
+      if (res.status === 404) {
+        console.warn(`All episodes API endpoint not available for bookId: ${bookId}`);
+        return { chapters: [] };
+      }
+      const errorText = await res.text();
+      console.error(`All episodes API error (${res.status}):`, url, errorText);
+      throw new Error(`Failed to fetch episodes: ${res.status} ${res.statusText}`);
+    }
+    
+    try {
+      const data = await res.json();
+      // Handle different response formats
+      const chapterList = data.chapters || data.data?.chapters || (Array.isArray(data) ? data : []);
+      
+      const chapters: StreamChapter[] = chapterList.map((ch: {
+        chapterId?: string;
+        chapterIndex?: number;
+        chapterName?: string;
+        chapterImg?: string;
+        cover?: string;
+        viewingDuration?: number;
+        duration?: number;
+        videoUrl?: string;
+        videoUrls?: Array<{
+          quality?: number;
+          url?: string;
+        }>;
+        cdnList?: Array<{
+          videoPathList?: Array<{
+            quality?: number;
+            videoPath?: string;
+          }>;
+        }>;
+      }) => {
+        // If already in correct format
+        if (ch.videoUrl || ch.videoUrls) {
+          return {
+            chapterId: ch.chapterId || '',
+            chapterIndex: ch.chapterIndex || 0,
+            chapterName: ch.chapterName || '',
+            videoUrl: ch.videoUrl,
+            videoUrls: ch.videoUrls,
+            cover: ch.cover || ch.chapterImg || '',
+            duration: ch.duration || ch.viewingDuration || 0,
+          };
+        }
+
+        // Transform from cdnList format
+        const cdnList = ch.cdnList || [];
+        const videoUrls: Array<{ quality: number; url: string }> = [];
+        
+        cdnList.forEach((cdn) => {
+          if (cdn.videoPathList) {
+            cdn.videoPathList.forEach((vp) => {
+              if (vp.videoPath) {
+                videoUrls.push({
+                  quality: vp.quality || 720,
+                  url: vp.videoPath,
+                });
+              }
+            });
+          }
+        });
+
+        return {
+          chapterId: ch.chapterId || '',
+          chapterIndex: ch.chapterIndex || 0,
+          chapterName: ch.chapterName || '',
+          videoUrl: videoUrls[0]?.url,
+          videoUrls: videoUrls.length > 0 ? videoUrls : undefined,
+          cover: ch.cover || ch.chapterImg || '',
+          duration: ch.duration || ch.viewingDuration || 0,
+        };
+      });
+
+      const result = { chapters };
+      
+      // Cache the result
+      if (useCache && typeof window !== 'undefined') {
+        try {
+          const cacheKey = `episodes_${bookId}`;
+          sessionStorage.setItem(cacheKey, JSON.stringify({
+            timestamp: Date.now(),
+            data: result,
+          }));
+        } catch {
+          // Cache failed, continue
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Failed to parse episodes response:', error);
+      return { chapters: [] };
+    }
+  }
+
+  async getStream(bookId: string): Promise<StreamResponse> {
+    // Use getAllEpisodes instead
+    return this.getAllEpisodes(bookId);
+  }
+
+  async getBookDetail(id: string, includeEpisodes = false): Promise<BookDetail> {
+    // Get book info from foryou/latest/trending/popular first
+    let book: Book | null = null;
+    try {
+      const [foryou, latest, trending, popular] = await Promise.all([
+        this.getForYou().catch(() => []),
+        this.getLatest().catch(() => []),
+        this.getTrending().catch(() => []),
+        this.getPopular().catch(() => []),
+      ]);
+      
+      const allBooks = [...foryou, ...latest, ...trending, ...popular];
+      book = allBooks.find(b => b.bookId === id) || null;
+      
+      // Normalize book data to ensure cover image is available
+      if (book) {
+        const rawBook = book as Book & Record<string, unknown>;
+        const coverImage = 
+          book.cover || 
+          book.coverWap || 
+          (rawBook.coverImage as string | undefined) || 
+          (rawBook.img as string | undefined) || 
+          (rawBook.image as string | undefined) || 
+          (rawBook.poster as string | undefined) || 
+          (rawBook.thumbnail as string | undefined) ||
+          '';
+        
+        book = {
+          ...book,
+          cover: coverImage,
+          coverWap: coverImage,
+        };
+        
+        // Log for debugging if cover is missing
+        if (!coverImage) {
+          console.warn(`No cover image found for book ${id}:`, {
+            bookId: book.bookId,
+            availableFields: Object.keys(rawBook).filter(k => 
+              k.toLowerCase().includes('cover') || 
+              k.toLowerCase().includes('img') || 
+              k.toLowerCase().includes('image') ||
+              k.toLowerCase().includes('poster')
+            ),
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch book info:', error);
+    }
+
+    if (!book) {
+      throw new Error(`Book with ID ${id} not found`);
+    }
+
+    // Only get episodes if explicitly requested (for backward compatibility)
+    // Otherwise, return empty chapterList - episodes will be loaded separately
+    let chapters: StreamChapter[] = [];
+    if (includeEpisodes) {
+      try {
+        const streamData = await this.getAllEpisodes(id, false); // Don't use cache for initial load
+        chapters = streamData.chapters || [];
+      } catch (error) {
+        console.warn('Failed to fetch episodes data, using empty chapters:', error);
+        // Continue with empty chapters - we'll show the book info at least
+      }
+    }
+
+    const chapterList: ChapterItem[] = chapters.map((ch, index) => ({
+      id: ch.chapterId,
+      name: ch.chapterName,
+      index: ch.chapterIndex || index + 1,
+      indexStr: String(ch.chapterIndex || index + 1),
+      unlock: true,
+      mp4: ch.videoUrl || ch.videoUrls?.[0]?.url,
+      m3u8Url: ch.videoUrl || ch.videoUrls?.[0]?.url,
+      m3u8Flag: true,
+      cover: ch.cover || book.cover || book.coverWap || '',
+      utime: '',
+      chapterPrice: 0,
+      duration: ch.duration || 0,
+      new: false,
+    }));
+
+    return {
+      book,
+      recommends: [],
+      chapterList,
+      languages: ['in'],
+      firstLanguage: 'in',
+      articleList: [],
+      sourceBookId: id,
+    };
   }
 
   async batchUnlockEpisode(
     bookId: string,
     chapterIdList: string[]
   ): Promise<UnlockBookDetail> {
-    const payload = {
-      bookId: bookId,
-      chapterIdList: chapterIdList,
-    };
+    const streamData = await this.getAllEpisodes(bookId);
+    const chapters = streamData.chapters || [];
+    
+    const chapterVoList: UnlockChapterItem[] = chapters
+      .filter(ch => chapterIdList.includes(ch.chapterId))
+      .map((ch) => ({
+        chapterId: ch.chapterId,
+        chapterIndex: ch.chapterIndex,
+        isCharge: 0,
+        chapterName: ch.chapterName,
+        cdnList: ch.videoUrls ? [{
+          cdnDomain: '',
+          isDefault: 1,
+          videoPathList: ch.videoUrls.map(v => ({
+            quality: v.quality,
+            videoPath: v.url,
+            isDefault: v.quality === ch.videoUrls?.[0]?.quality ? 1 : 0,
+            isEntry: 0,
+            isVipEquity: 0,
+          })),
+        }] : [],
+        chapterImg: ch.cover || '',
+        chapterType: 0,
+        needInterstitialAd: 0,
+        viewingDuration: ch.duration || 0,
+        chargeChapter: false,
+      }));
 
-    const { signature, timestamp } = await this.getSignature(payload);
-    const res = await fetch(
-      `https://dramabox-api.d5studio.site/proxy.php/drama-box/chapterv2/batchDownload?timestamp=${timestamp}`,
-      {
-        method: "POST",
-        headers: { ...this.headers, sn: signature },
-        body: JSON.stringify(payload),
-      }
-    );
-    const response = (await res.json()) as BaseResponse<UnlockBookDetail>;
-    if (!response.success) {
-      // Create a custom error with the API message
-      const error = new Error(response.message);
-      error.name = 'UnlockError';
-      throw error;
-    }
-    return response.data;
+    return {
+      chapterVoList,
+      bookName: '',
+      bookCover: '',
+      introduction: '',
+    };
   }
 
   async getChapterVideoUrl(
@@ -245,46 +419,27 @@ export class DramaboxAPI {
     quality?: number
   ): Promise<{ url: string; quality: number } | null> {
     try {
-      const detail = await this.getBookDetail(bookId);
-      const chapters = detail.chapterList.map((chapter) => chapter.id);
-      const unlocked = await this.batchUnlockEpisode(bookId, chapters);
+      const streamData = await this.getAllEpisodes(bookId);
+      const chapters = streamData.chapters || [];
+      const chapter = chapters.find(ch => ch.chapterId === chapterId);
+      
+      if (!chapter) return null;
 
-      const chapter = unlocked.chapterVoList.find(
-        (ch) => ch.chapterId === chapterId
-      );
-
-      if (!chapter || chapter.cdnList.length === 0) {
-        return null;
+      if (chapter.videoUrl) {
+        return { url: chapter.videoUrl, quality: quality || 720 };
       }
 
-      let mp4Url = null;
-      let qualitySelected = null;
-
-      if (quality) {
-        for (const cdn of chapter.cdnList) {
-          const videoPathList = cdn.videoPathList;
-          const correctQuality = videoPathList.find(
-            (path) => path.quality === quality
-          );
-          if (correctQuality) {
-            mp4Url = correctQuality.videoPath;
-            qualitySelected = correctQuality.quality;
-            break;
-          }
-        }
-      } else {
-        for (const cdn of chapter.cdnList) {
-          mp4Url = cdn.videoPathList[0]?.videoPath ?? null;
-          qualitySelected = cdn.videoPathList[0]?.quality ?? null;
-          break;
+      if (chapter.videoUrls && chapter.videoUrls.length > 0) {
+        const selectedVideo = quality 
+          ? chapter.videoUrls.find(v => v.quality === quality)
+          : chapter.videoUrls[0];
+        
+        if (selectedVideo) {
+          return { url: selectedVideo.url, quality: selectedVideo.quality };
         }
       }
 
-      if (!mp4Url) {
         return null;
-      }
-
-      return { url: mp4Url, quality: qualitySelected || 0 };
     } catch {
       return null;
     }
@@ -302,52 +457,20 @@ export class DramaboxAPI {
     }>
   > {
     try {
-      const detail = await this.getBookDetail(bookId);
-      const chapters = detail.chapterList.map((chapter) => chapter.id);
-      const unlocked = await this.batchUnlockEpisode(bookId, chapters);
-
-      const sortedChapters = unlocked.chapterVoList.sort(
-        (a, b) => a.chapterIndex - b.chapterIndex
-      );
-
-      const chapterList = [];
-      for (const chapter of sortedChapters) {
-        if (chapter.cdnList.length === 0) {
-          continue;
-        }
-        let mp4Url = null;
-        let qualitySelected = null;
-        if (quality) {
-          for (const cdn of chapter.cdnList) {
-            const videoPathList = cdn.videoPathList;
-            const correctQuality = videoPathList.find(
-              (path) => path.quality === quality
-            );
-            if (correctQuality) {
-              mp4Url = correctQuality.videoPath;
-              qualitySelected = correctQuality.quality;
-              break;
-            }
-          }
-        } else {
-          for (const cdn of chapter.cdnList) {
-            mp4Url = cdn.videoPathList[0]?.videoPath ?? null;
-            qualitySelected = cdn.videoPathList[0]?.quality ?? null;
-            break;
-          }
-        }
-        if (!mp4Url) {
-          continue;
-        }
-        chapterList.push({
-          chapterIndex: chapter.chapterIndex,
-          chapterId: chapter.chapterId,
-          mp4Url: mp4Url,
-          qualitySelected: qualitySelected || 0,
-        });
-      }
-
-      return chapterList;
+      const streamData = await this.getAllEpisodes(bookId);
+      const chapters = streamData.chapters || [];
+      
+      return chapters.map((ch) => {
+        const videoUrl = ch.videoUrl || ch.videoUrls?.[0]?.url || '';
+        const selectedQuality = quality || ch.videoUrls?.[0]?.quality || 720;
+        
+        return {
+          chapterIndex: ch.chapterIndex,
+          chapterId: ch.chapterId,
+          mp4Url: videoUrl,
+          qualitySelected: selectedQuality,
+        };
+      });
     } catch {
       return [];
     }
@@ -355,4 +478,3 @@ export class DramaboxAPI {
 }
 
 export const dramaboxApi = new DramaboxAPI();
-

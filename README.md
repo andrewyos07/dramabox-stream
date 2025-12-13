@@ -23,6 +23,7 @@ Aplikasi streaming dan download drama berbasis React + Vite dengan desain mobile
 ## Instalasi
 
 1. Install dependencies:
+
 ```bash
 npm install
 # atau
@@ -30,13 +31,50 @@ bun install
 ```
 
 2. Jalankan development server:
+
 ```bash
 npm run dev
 # atau
 bun run dev
 ```
 
+> **Catatan:** Backend proxy sekarang dipisah ke folder `../dramabox-streaming-backend` agar tidak lagi bercampur dengan frontend. Saat development jalankan dua terminal:
+>
+> 1. Terminal A (backend/proxy):
+>
+>    ```bash
+>    cd /Volumes/WOWKWB - YOS/CODE/dramabox-streaming-backend
+>    vercel dev --listen 3000 --debug
+>    ```
+>
+>    Folder backend ini memuat sumber `api/` asli. Vercel CLI tidak akan lagi mencoba menjalankan Vite karena `framework` dipaksa `null`.
+>
+>    Jika Dramabox mengganti token atau device info, set environment variable berikut sebelum menjalankan `vercel dev` agar proxy memakai header baru:
+>
+>    - `DRAMABOX_TN`
+>    - `DRAMABOX_USER_ID`
+>    - `DRAMABOX_DEVICE_ID`
+>    - `DRAMABOX_ANDROID_ID`
+>    - `DRAMABOX_CID`, `DRAMABOX_BRAND`, `DRAMABOX_MODEL`, `DRAMABOX_MANUFACTURER`
+>    - `DRAMABOX_VERSION`, `DRAMABOX_VERSION_NAME`
+>      Contoh:
+>
+>    ```bash
+>    export DRAMABOX_TN='Bearer xxx'
+>    export DRAMABOX_USER_ID='336084056'
+>    vercel dev --listen 3000 --debug
+>    ```
+>
+> 2. Terminal B (frontend):
+>    ```bash
+>    cd /Volumes/WOWKWB - YOS/CODE/dramabox-streaming
+>    npm run dev
+>    ```
+>
+> Vite (`localhost:5173`) otomatis mem-proxy `/api/*` ke backend di `localhost:3000`, sehingga semua episode akan terbuka seperti di downloader.
+
 3. Build untuk production:
+
 ```bash
 npm run build
 # atau

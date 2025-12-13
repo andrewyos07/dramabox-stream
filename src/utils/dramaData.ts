@@ -5,6 +5,7 @@ export const normalizeBookData = (item: Book): Book => ({
   ...item,
   bookId: item.bookId || item.id || '',
   bookName: item.bookName || item.title || 'Untitled',
+  cover: item.cover || item.coverWap || item.cover || '',
 });
 
 const keywordCache = new Map<string, Book[]>();
